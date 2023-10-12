@@ -5,6 +5,11 @@ from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingClassifier
 from sklearn.model_selection import StratifiedKFold, train_test_split
 
+raw_data = pd.read_csv('./train.csv')
+X = raw_data.iloc[:,:-1]
+y = raw_data['defects'].astype(int)
+col_names = raw_data.columns
+
 ## RFE method
 # rfe = RFE(
 #     estimator=model,
@@ -31,48 +36,23 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 # print(sfm.threshold_)
 
 #wrapper method
-def seqFeatureSelect(model, X, y, direction, scoring):
-    sfs = SequentialFeatureSelector(model,
-                                    # n_features_to_select=19,
-                                    direction=direction,
-                                    scoring=scoring)
-    # fit the object to the training data
-    feature_names = X.drop(columns='kfold').columns
-    sfs = sfs.fit(X.drop(columns='kfold'), y)
-    support = sfs.get_support()
-    selected_feature = [x for x, y in zip(feature_names, support) if y == True] + ['kfold']
-    X = X[selected_feature]
-    return X, selected_feature
+model = Lasso()
+sfs_f = SequentialFeatureSelector(model,
+#                                n_features_to_select=19,
+                                direction='forward',
+                                scoring='roc_auc')
+# fit the object to the training data
+sfs_f = sfs_f.fit(X, y)
+support_f = sfs_f.get_support()
+selected_feature_f = [x for x, y in zip(col_names, support_f) if y == True]
+print(selected_feature_f)
 
-
-def create_folds(data, n_splits, seed=None):
-    data["kfold"] = -1
-    kf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-
-    for f, (t_, v_) in enumerate(kf.split(X=data, y=data['defects'])):
-        data.loc[v_, 'kfold'] = f
-
-    return data
-
-# df = pd.DataFrame({'team': ['A', 'A', 'A', 'B', 'B', 'B'],
-#                    'points': [11, 7, 8, 10, 13, 13],
-#                    'assists': [5, 7, 7, 9, 12, 9],
-#                    'rebounds': [11, 8, 10, 6, 6, 5],
-#                    'defects': [1, 1, 1, 1, 1, 1]})
-# print(create_folds(df, 3, 4))
-
-if __name__ == '__main__' :
-    raw_data = pd.read_csv('./train.csv')
-    # X = raw_data.iloc[:,:-1]
-    # y = raw_data['defects'].astype(int)
-    direction = 'backward'
-    scoring = 'roc_auc'
-    model = Lasso()
-
-    data = create_folds(raw_data, n_splits=5, seed=1)
-    X = data[data.columns[~data.columns.isin(['defects'])]]
-    y = data['defects'].astype(int)
-    print(data.groupby(['kfold','defects']).size())
-
-    X, selected_features = seqFeatureSelect(model, X, y, direction, scoring)
-    print(selected_features)
+sfs_b = SequentialFeatureSelector(model,
+#                                n_features_to_select=19,
+                                direction='backward',
+                                scoring='roc_auc')
+# fit the object to the training data
+sfs_b = sfs_b.fit(X, y)
+support_b = sfs_b.get_support()
+selected_feature_b = [x for x, y in zip(col_names, support_b) if y == True]
+print(selected_feature_b)
