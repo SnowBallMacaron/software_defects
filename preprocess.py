@@ -5,15 +5,20 @@ from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingClassifier
 from sklearn.model_selection import StratifiedKFold, train_test_split
 
-## RFE method
-# rfe = RFE(
-#     estimator=model,
-#     n_features_to_select=19
-# )
-# rfe.fit(X, Y)
-#
-# X_transformed = rfe.transform(X)
-# pass
+# RFE method model = LinearRegression()
+def rfeFeatureSelect(model, X, y):
+
+    rfe = RFE(
+        estimator=model
+        # n_features_to_select = 19
+    )
+    feature_names = X.drop(columns='kfold').columns
+    rfe = rfe.fit(X.drop(columns='kfold'), y)
+    support = rfe.get_support()
+    selected_feature_rfe = [x for x, y in zip(feature_names, support) if y == True] + ['kfold']
+    X = X[selected_feature_rfe]
+    return X, selected_feature_rfe
+
 
 ## Select from model method
 # model = RandomForestRegressor()
