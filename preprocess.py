@@ -5,6 +5,7 @@ from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingClassifier
 from sklearn.model_selection import StratifiedKFold, train_test_split
 
+
 # RFE method model = LinearRegression()
 def rfeFeatureSelect(model, X, y):
 
@@ -36,18 +37,18 @@ def rfeFeatureSelect(model, X, y):
 # print(sfm.threshold_)
 
 #wrapper method
-def seqFeatureSelect(model, X, y, direction, scoring):
+def seqFeatureSelect(model, data, direction, scoring):
     sfs = SequentialFeatureSelector(model,
                                     # n_features_to_select=19,
                                     direction=direction,
                                     scoring=scoring)
     # fit the object to the training data
-    feature_names = X.drop(columns='kfold').columns
-    sfs = sfs.fit(X.drop(columns='kfold'), y)
+    feature_names = data.drop(columns=['kfold', 'defects']).columns
+    sfs = sfs.fit(data.drop(columns=['kfold', 'defects']), data['defects'])
     support = sfs.get_support()
-    selected_feature = [x for x, y in zip(feature_names, support) if y == True] + ['kfold']
-    X = X[selected_feature]
-    return X, selected_feature
+    selected_feature = [x for x, y in zip(feature_names, support) if y == True] + ['kfold', 'defects']
+    data = data[selected_feature]
+    return data, selected_feature
 
 
 def create_folds(data, n_splits, seed=None):
@@ -75,9 +76,8 @@ if __name__ == '__main__' :
     model = Lasso()
 
     data = create_folds(raw_data, n_splits=5, seed=1)
-    X = data[data.columns[~data.columns.isin(['defects'])]]
-    y = data['defects'].astype(int)
+    data['defects'] = data['defects'].astype(int)
     print(data.groupby(['kfold','defects']).size())
 
-    X, selected_features = seqFeatureSelect(model, X, y, direction, scoring)
+    X, selected_features = seqFeatureSelect(model, data, direction, scoring)
     print(selected_features)
