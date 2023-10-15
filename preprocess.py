@@ -89,6 +89,31 @@ def outlier(data, factor):
     no_outliers.reset_index(drop=True, inplace=True)
     return no_outliers
 
+def sampling(data, params): ## under, over
+    samples = [data]
+    for samp_name, (strategy, method) in params.items():
+        if method == 'under':
+            sampler = RandomUnderSampler(sampling_strategy=strategy)
+        elif method == 'over':
+            sampler = RandomOverSampler(sampling_strategy=strategy)
+        else:
+            raise ValueError
+        X, y = sampler.fit_resample(data.drop(columns=['defects']), data['defects'])
+        sampled_data = pd.concat([X, y], axis=1).reset_index(drop=True)
+        samples.append(sampled_data)
+    return samples
+
+def saveSamples(data):
+    for i, sample in enumerate(data):
+        sample.to_csv(f'sample_{i}.csv', index=False)
+
+def process_data(data_path,sample_params, feature_model, direction, scoring, n_features_to_select):
+    raw_data = pd.read_csv(data_path).drop(columns='id')
+    print('selecting features')
+    data, selected_features = seqFeatureSelect(feature_model, raw_data, direction, scoring, n_features_to_select)
+    samples = sampling(data, sample_params)
+    saveSamples(samples)
+    # return data, selected_features
 
 if __name__ == '__main__' :
     raw_data = pd.read_csv('./train.csv')
@@ -111,12 +136,4 @@ if __name__ == '__main__' :
     # plt.plot(figsize=(10, 3), dpi=200)
     # sns.countplot(data, y="defects", hue="defects")
     # plt.show()
-def sampling(data, strategy, method): ## under, over
-    if method == 'under':
-        sample = RandomUnderSampler(sampling_strategy=strategy)
-    else:
-        sample = RandomOverSampler(sampling_strategy=strategy)
-    X, y = sample.fit_resample(data.drop(columns=['defects']), data['defects'])
-    data = pd.concat([X, y], axis=1).reset_index(drop=True)
-    return data
 
