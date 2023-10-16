@@ -1,4 +1,3 @@
-import copy
 import numpy as np
 import torch
 import torch.nn as nn
@@ -36,7 +35,7 @@ class TrainDataset(Dataset):
     def __getitem__(self, index):
         return self.x[index], self.y[index]
 
-def trainNNModel(model, train_dl, val_dl, fold):
+def trainNNModel(model, train_dl, val_dl, n_epochs, pbar):
     # loss function and optimizer
     loss_fn = nn.BCELoss()  # binary cross entropy
     optimizer = torch.optim.Adam(
@@ -51,14 +50,13 @@ def trainNNModel(model, train_dl, val_dl, fold):
                                                            verbose=0,
                                                            cooldown=2,
                                                            min_lr=1e-5)
-
-    n_epochs = 50  # number of epochs to run
+  # number of epochs to run
 
     # Hold the best model
     # best_acc = - np.inf  # init to negative infinity
     # best_weights = None
 
-    for epoch in tqdm(range(n_epochs)):
+    for epoch in range(n_epochs):
         model.train()
         loss_all = 0
         for i, (X, y) in enumerate(train_dl):
@@ -75,9 +73,10 @@ def trainNNModel(model, train_dl, val_dl, fold):
             # update weights
             optimizer.step()
             # print progress
-        if epoch % 5 == 0:
-            print(f"epoch {epoch}, Loss: {loss_all/len(train_dl)}")
+        # if epoch % 5 == 0:
+        #     print(f"epoch {epoch}, Loss: {loss_all/len(train_dl)}")
         scheduler.step(loss_all/len(train_dl))
+        pbar.update(1)
 
     model.eval()
     predictions = []
@@ -90,23 +89,40 @@ def trainNNModel(model, train_dl, val_dl, fold):
     predictions = np.squeeze(predictions, axis=1)
     auc = metrics.roc_auc_score(val_dl.dataset.y, predictions)
 
-    print(f"Fold = {fold}, AUC = {auc}")
+    return auc
+
+def reportCV(cv_list, feature_list):
+    print('===============================')
+    print(f"n_features = {feature_list['n_features']}, \n\
+layer_params = {feature_list['layer_params']} , \n\
+n_epochs = {feature_list['n_epochs']}, \ndropout = {feature_list['dropout']}")
+    for i, sample in enumerate(cv_list):
+        print(f'----------sample{i}------------')
+        for fold, auc in enumerate(sample):
+            print(f"Fold = {fold}, AUC = {auc}")
 
 if __name__ == '__main__':
     device = torch.device('cuda')
     samples = 5
     k=5
+    performance = []
 
+    feature_list = {'n_features': 15,
+                    'layer_params': [15, 64, 128],
+                    'n_epochs': 1,
+                    'dropout': 0.2}
+    pbar = tqdm(total=samples*k*feature_list['n_epochs'])
 
     for i in range(samples):
+        performance.append([])
         sample = pd.read_csv(f'sample_{i}.csv')
-        print(f'----------sample{i}------------')
+        # print(f'----------sample{i}------------')
         data = create_folds(sample, n_splits=5, seed=7)
-        data.loc[:, 'defects'] = data['defects'].astype(int)
-        print(data.groupby(['kfold', 'defects']).size())
+        # data.loc[:, 'defects'] = data['defects'].astype(int)
+        # print(data.groupby(['kfold', 'defects']).size())
 
         for fold in range(k):
-            model = NNModel([19, 64, 128, 256, 512], 0.1).to(device)
+            model = NNModel(feature_list['layer_params'], feature_list['dropout']).to(device)
             train_data = data[data.kfold != fold].reset_index(drop=True).drop(columns='kfold')
             val_data = data[data.kfold == fold].reset_index(drop=True).drop(columns='kfold')
 
@@ -126,4 +142,6 @@ if __name__ == '__main__':
                                   pin_memory=True,
                                   drop_last=False)
 
-            trainNNModel(model, train_dl, val_dl, fold)
+            performance[-1].append(trainNNModel(model, train_dl, val_dl, feature_list['n_epochs'], pbar))
+
+    reportCV(performance, feature_list)
