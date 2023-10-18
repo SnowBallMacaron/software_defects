@@ -116,21 +116,43 @@ def process_data(data_path,sample_params, feature_model, direction, scoring, n_f
     # return data, selected_features
 
 if __name__ == '__main__' :
-    raw_data = pd.read_csv('./train.csv')
+    # raw_data = pd.read_csv('./train.csv')
+    data_path = './train.csv'
     # X = raw_data.iloc[:,:-1]
     # y = raw_data['defects'].astype(int)
     direction = 'backward'
     scoring = 'roc_auc'
-    model = Lasso()  # LinearRegression Lasso
+    device = 'cpu'
+    # device = 'cuda'
+    lasso_model = Lasso()
+    linear_model = LinearRegression()
+    feature_model = lasso_model
+    n_features_to_select = 16
 
-    data, selected_features = seqFeatureSelect(model, raw_data, direction, scoring)
-    print(selected_features)
+    sample_params = {'sample1': ('majority', 'under'),
+                     # 'sample2': (1/3, 'under'),
+                     'sample3': (0.5, 'under'),
+                     'sample4': ('minority', 'over'),
+                     # 'sample5': (1/3, 'over'),
+                     'sample6': (0.5, 'over'),
+                     }
+    process_data(data_path,sample_params, feature_model, direction, scoring, n_features_to_select)
 
-    data = outlier(data)
-
-    data = create_folds(data, n_splits=5, seed=1)
-    data['defects'] = data['defects'].astype(int)
-    print(data.groupby(['kfold', 'defects']).size())
+    # raw_data = pd.read_csv('./train.csv')
+    # # X = raw_data.iloc[:,:-1]
+    # # y = raw_data['defects'].astype(int)
+    # direction = 'backward'
+    # scoring = 'roc_auc'
+    # model = Lasso()  # LinearRegression Lasso
+    #
+    # data, selected_features = seqFeatureSelect(model, raw_data, direction, scoring)
+    # print(selected_features)
+    #
+    # data = outlier(data)
+    #
+    # data = create_folds(data, n_splits=5, seed=1)
+    # data['defects'] = data['defects'].astype(int)
+    # print(data.groupby(['kfold', 'defects']).size())
 
 
     # plt.plot(figsize=(10, 3), dpi=200)

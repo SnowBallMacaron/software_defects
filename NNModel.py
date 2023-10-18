@@ -35,6 +35,72 @@ class TrainDataset(Dataset):
     def __getitem__(self, index):
         return self.x[index], self.y[index]
 
+class ModelCrossValidator:
+    def __init__(self, model_features, n_samples, k, seed=7):
+        self.model_features = model_features
+        self.n_samples = n_samples
+        self.k = k
+        self.all_model_performance = []
+        total_epochs = 0
+        for features_list in self.model_features:
+            total_epochs += features_list['n_epochs']
+        self.pbar = tqdm(total=self.n_samples*k*total_epochs)
+        self.seed = seed
+
+    def validateModel(self):
+        for model_num, feature_list in enumerate(self.model_features):
+            performance = []
+            for i in range(self.n_samples):
+                performance.append([])
+                sample = pd.read_csv(f'sample_{i}.csv')
+                # print(f'----------sample{i}------------')
+                data = create_folds(sample, n_splits=self.k, seed=self.seed)
+                # data.loc[:, 'defects'] = data['defects'].astype(int)
+                # print(data.groupby(['kfold', 'defects']).size())
+
+                for fold in range(self.k):
+                    model = NNModel(feature_list['layer_params'], feature_list['dropout']).to(device)
+                    train_data = data[data.kfold != fold].reset_index(drop=True).drop(columns='kfold')
+                    val_data = data[data.kfold == fold].reset_index(drop=True).drop(columns='kfold')
+
+                    x_train = train_data.drop(columns='defects').values
+                    y_train = train_data.defects.values
+                    x_val = val_data.drop(columns='defects').values
+                    y_val = val_data.defects.values
+
+                    train_dl = DataLoader(dataset=TrainDataset(x_train, y_train),
+                                          batch_size=256,
+                                          shuffle=True,
+                                          pin_memory=True,
+                                          drop_last=False)
+                    val_dl = DataLoader(dataset=TrainDataset(x_val, y_val),
+                                        batch_size=256,
+                                        shuffle=False,
+                                        pin_memory=True,
+                                        drop_last=False)
+
+                    performance[-1].append(trainNNModel(model, train_dl, val_dl, feature_list['n_epochs'], self.pbar))
+            self.all_model_performance.append(performance)
+
+    def reportCV(self):
+        for i, (sample_performance_list, feature_list) in enumerate(zip(self.all_model_performance, self.model_features)):
+            print(f'\n==============model{i + 1}==================')
+            mean_auc = 0
+            num_val = 0
+            print(f'''n_features = {feature_list['n_features']}
+layer_params = {feature_list['layer_params']}
+n_epochs = {feature_list['n_epochs']}
+dropout = {feature_list['dropout']}''')
+
+            for j, sample in enumerate(sample_performance_list):
+                print(f'----------sample{j}------------')
+                for fold, auc in enumerate(sample):
+                    mean_auc += auc
+                    num_val += 1
+                    print(f"Fold = {fold}, AUC = {auc}")
+            print(f'\nMean AUC = {mean_auc/num_val}')
+
+
 def trainNNModel(model, train_dl, val_dl, n_epochs, pbar):
     # loss function and optimizer
     loss_fn = nn.BCELoss()  # binary cross entropy
@@ -91,57 +157,45 @@ def trainNNModel(model, train_dl, val_dl, n_epochs, pbar):
 
     return auc
 
-def reportCV(cv_list, feature_list):
-    print('===============================')
-    print(f"n_features = {feature_list['n_features']}, \n\
-layer_params = {feature_list['layer_params']} , \n\
-n_epochs = {feature_list['n_epochs']}, \ndropout = {feature_list['dropout']}")
-    for i, sample in enumerate(cv_list):
-        print(f'----------sample{i}------------')
-        for fold, auc in enumerate(sample):
-            print(f"Fold = {fold}, AUC = {auc}")
-
 if __name__ == '__main__':
     device = torch.device('cuda')
-    samples = 5
-    k=5
-    performance = []
+    modelCVer = ModelCrossValidator(
+        n_samples=1,
+        k=2,
+        model_features=[{'n_features': 16,
+                         'layer_params': [16, 64],
+                         'n_epochs': 8,
+                         'dropout': 0.05},
+                        {'n_features': 16,
+                         'layer_params': [16, 128],
+                         'n_epochs': 8,
+                         'dropout': 0.15},
+                        {'n_features': 16,
+                         'layer_params': [16, 64, 128],
+                         'n_epochs': 8,
+                         'dropout': 0.05},
+                        {'n_features': 16,
+                         'layer_params': [16, 64, 128],
+                         'n_epochs': 8,
+                         'dropout': 0.05},
+                        {'n_features': 16,
+                         'layer_params': [16, 64, 256],
+                         'n_epochs': 8,
+                         'dropout': 0.1},
+                        {'n_features': 16,
+                         'layer_params': [16, 64, 256],
+                         'n_epochs': 8,
+                         'dropout': 0.4},
+                        {'n_features': 16,
+                         'layer_params': [16, 512],
+                         'n_epochs': 8,
+                         'dropout': 0.05},
+                        {'n_features': 16,
+                         'layer_params': [16, 512],
+                         'n_epochs': 8,
+                         'dropout': 0.1},
+                        ]
+    )
 
-    feature_list = {'n_features': 15,
-                    'layer_params': [15, 64, 128],
-                    'n_epochs': 1,
-                    'dropout': 0.2}
-    pbar = tqdm(total=samples*k*feature_list['n_epochs'])
-
-    for i in range(samples):
-        performance.append([])
-        sample = pd.read_csv(f'sample_{i}.csv')
-        # print(f'----------sample{i}------------')
-        data = create_folds(sample, n_splits=5, seed=7)
-        # data.loc[:, 'defects'] = data['defects'].astype(int)
-        # print(data.groupby(['kfold', 'defects']).size())
-
-        for fold in range(k):
-            model = NNModel(feature_list['layer_params'], feature_list['dropout']).to(device)
-            train_data = data[data.kfold != fold].reset_index(drop=True).drop(columns='kfold')
-            val_data = data[data.kfold == fold].reset_index(drop=True).drop(columns='kfold')
-
-            x_train = train_data.drop(columns='defects').values
-            y_train = train_data.defects.values
-            x_val = val_data.drop(columns='defects').values
-            y_val = val_data.defects.values
-
-            train_dl = DataLoader(dataset=TrainDataset(x_train, y_train),
-                                  batch_size=256,
-                                  shuffle=True,
-                                  pin_memory=True,
-                                  drop_last=False)
-            val_dl = DataLoader(dataset=TrainDataset(x_val, y_val),
-                                  batch_size=256,
-                                  shuffle=False,
-                                  pin_memory=True,
-                                  drop_last=False)
-
-            performance[-1].append(trainNNModel(model, train_dl, val_dl, feature_list['n_epochs'], pbar))
-
-    reportCV(performance, feature_list)
+    modelCVer.validateModel()
+    modelCVer.reportCV()

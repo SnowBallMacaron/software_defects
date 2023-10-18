@@ -74,26 +74,24 @@ if __name__ == "__main__":
         verbose=-1,
         # device=device
     )
-
     xgb_model = xgb.XGBClassifier(
         n_estimators=200,
         n_jobs=-1,
         max_depth=7,
         device=device
     )
-
     lasso_model = Lasso()
     linear_model = LinearRegression()
 
     train_model = lgb_model
     feature_model = lasso_model
-    n_features_to_select = 17
+    n_features_to_select = 16
 
     sample_params = {'sample1': ('majority', 'under'),
-                     'sample2': (1/3, 'under'),
+                     # 'sample2': (1/3, 'under'),
                      'sample3': (0.5, 'under'),
                      'sample4': ('minority', 'over'),
-                     'sample5': (1/3, 'over'),
+                     # 'sample5': (1/3, 'over'),
                      'sample6': (0.5, 'over'),
                      }
 
