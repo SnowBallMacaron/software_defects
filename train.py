@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn import metrics
 import xgboost as xgb
-import cupy as cp
+# import cupy as cp
 import time
 import lightgbm as lgb
 
