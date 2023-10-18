@@ -4,7 +4,10 @@ import seaborn as sns
 import imblearn
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
-
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import PowerTransformer, StandardScaler, QuantileTransformer
+from sklearn.pipeline import make_pipeline
+from sklearn.compose import make_column_selector, make_column_transformer
 from sklearn.feature_selection import RFE, SelectFromModel, SelectKBest, f_regression, SequentialFeatureSelector
 from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingClassifier
@@ -103,16 +106,50 @@ def sampling(data, params): ## under, over
         samples.append(sampled_data)
     return samples
 
-def saveSamples(data):
+def saveSamples(data, file_name='sample'):
     for i, sample in enumerate(data):
-        sample.to_csv(f'sample_{i}.csv', index=False)
+        sample.to_csv(f'{file_name}_{i}.csv', index=False)
 
-def process_data(data_path,sample_params, feature_model, direction, scoring, n_features_to_select):
+def normalPCA(raw_data, n_components='mle'):
+    transformer = PowerTransformer(method='yeo-johnson', standardize=True)
+    y = raw_data['defects']
+    raw_data = raw_data.drop(columns=['defects'])
+    pipeline = make_pipeline(
+
+        QuantileTransformer(output_distribution='normal', random_state=42),
+        # PowerTransformer(method='yeo-johnson', standardize=True),
+        StandardScaler()
+    )
+    transformer = make_column_transformer(
+        (
+            pipeline,
+            make_column_selector(dtype_include=np.number)
+        # We want to apply numerical_pipeline only on numerical columns
+        ),
+        remainder='passthrough',
+        verbose_feature_names_out=False
+    )
+    normalized_data = pipeline.fit_transform(raw_data)
+    normalized_df = pd.DataFrame(data=normalized_data, columns=raw_data.columns)
+
+    # mean = normalized_df.mean(axis=0)
+    pca = PCA(n_components=n_components)
+    pca.fit(normalized_df)
+    transformed_data = pca.transform(normalized_df)
+    transformed_data = pd.concat([pd.DataFrame(transformed_data), y], axis=1).reset_index(drop=True)
+    return transformed_data
+
+def process_data(data_path, sample_params, feature_model=None, direction=None, scoring=None, n_features_to_select=None,
+                 file_name='sample', n_components='mle'):
     raw_data = pd.read_csv(data_path).drop(columns='id')
     print('selecting features')
-    data, selected_features = seqFeatureSelect(feature_model, raw_data, direction, scoring, n_features_to_select)
+    if feature_model:
+        data, selected_features = seqFeatureSelect(feature_model, raw_data, direction, scoring, n_features_to_select)
+    else:
+        data = normalPCA(raw_data, n_components=n_components)
+
     samples = sampling(data, sample_params)
-    saveSamples(samples)
+    saveSamples(samples, file_name)
     # return data, selected_features
 
 if __name__ == '__main__' :
@@ -128,15 +165,21 @@ if __name__ == '__main__' :
     linear_model = LinearRegression()
     feature_model = lasso_model
     n_features_to_select = 16
+    pca_n_components = 15
 
-    sample_params = {'sample1': ('majority', 'under'),
+    sample_params = {
+        # 'sample1': ('majority', 'under'),
                      # 'sample2': (1/3, 'under'),
                      'sample3': (0.5, 'under'),
                      'sample4': ('minority', 'over'),
                      # 'sample5': (1/3, 'over'),
                      'sample6': (0.5, 'over'),
                      }
-    process_data(data_path,sample_params, feature_model, direction, scoring, n_features_to_select)
+    # data preprocess for ML methods
+    # process_data(data_path,sample_params, feature_model, direction, scoring, n_features_to_select)
+
+    #data preprocess for DL methods
+    process_data(data_path,sample_params=sample_params, file_name='nn_sample', n_components=pca_n_components)
 
     # raw_data = pd.read_csv('./train.csv')
     # # X = raw_data.iloc[:,:-1]

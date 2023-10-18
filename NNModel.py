@@ -14,8 +14,10 @@ class NNModel(nn.Module):
         self.net = nn.Sequential()
         for in_feature, out_feature in zip(feature_lists[:-1], feature_lists[1:]):
             self.net.append(nn.Linear(in_feature, out_feature))
-            self.net.append(nn.BatchNorm1d(out_feature))
+            # self.net.append(nn.BatchNorm1d(out_feature))
             self.net.append(nn.ReLU())
+            # self.net.append(nn.Sigmoid())
+            # self.net.append(nn.Softmax(1))
             self.net.append(nn.Dropout(dropout))
         self.net.append(nn.Linear(feature_lists[-1], 1))
         self.sigmoid = nn.Sigmoid()
@@ -36,7 +38,8 @@ class TrainDataset(Dataset):
         return self.x[index], self.y[index]
 
 class ModelCrossValidator:
-    def __init__(self, model_features, n_samples, k, seed=7):
+    def __init__(self, model_features, n_samples, k, seed=7, file_name='nn_sample'):
+        self.file_name = file_name
         self.model_features = model_features
         self.n_samples = n_samples
         self.k = k
@@ -46,15 +49,17 @@ class ModelCrossValidator:
             total_epochs += features_list['n_epochs']
         self.pbar = tqdm(total=self.n_samples*k*total_epochs)
         self.seed = seed
+        self.samples_data = [create_folds(pd.read_csv(f'{self.file_name}_{i}.csv'), n_splits=self.k, seed=self.seed)
+                             for i in range(self.n_samples)]
 
     def validateModel(self):
         for model_num, feature_list in enumerate(self.model_features):
             performance = []
             for i in range(self.n_samples):
                 performance.append([])
-                sample = pd.read_csv(f'sample_{i}.csv')
+                data = self.samples_data[i]
                 # print(f'----------sample{i}------------')
-                data = create_folds(sample, n_splits=self.k, seed=self.seed)
+                # data = create_folds(sample, n_splits=self.k, seed=self.seed)
                 # data.loc[:, 'defects'] = data['defects'].astype(int)
                 # print(data.groupby(['kfold', 'defects']).size())
 
@@ -72,7 +77,8 @@ class ModelCrossValidator:
                                           batch_size=256,
                                           shuffle=True,
                                           pin_memory=True,
-                                          drop_last=False)
+                                          drop_last=False,
+                                          num_workers=0)
                     val_dl = DataLoader(dataset=TrainDataset(x_val, y_val),
                                         batch_size=256,
                                         shuffle=False,
@@ -126,13 +132,15 @@ def trainNNModel(model, train_dl, val_dl, n_epochs, pbar):
         model.train()
         loss_all = 0
         for i, (X, y) in enumerate(train_dl):
-            optimizer.zero_grad()
+
             # forward pass
             X = X.to(device)
             y = y.to(device)
             pred = model(X)
             loss = loss_fn(pred, y.unsqueeze(1))
             loss_all += loss.item()
+
+            optimizer.zero_grad()
             # backward pass
 
             loss.backward()
@@ -159,42 +167,33 @@ def trainNNModel(model, train_dl, val_dl, n_epochs, pbar):
 
 if __name__ == '__main__':
     device = torch.device('cuda')
+    n_epochs = 300
+    n_features = 15
     modelCVer = ModelCrossValidator(
-        n_samples=1,
-        k=2,
-        model_features=[{'n_features': 16,
-                         'layer_params': [16, 64],
-                         'n_epochs': 8,
-                         'dropout': 0.05},
-                        {'n_features': 16,
-                         'layer_params': [16, 128],
-                         'n_epochs': 8,
-                         'dropout': 0.15},
-                        {'n_features': 16,
-                         'layer_params': [16, 64, 128],
-                         'n_epochs': 8,
-                         'dropout': 0.05},
-                        {'n_features': 16,
-                         'layer_params': [16, 64, 128],
-                         'n_epochs': 8,
-                         'dropout': 0.05},
-                        {'n_features': 16,
-                         'layer_params': [16, 64, 256],
-                         'n_epochs': 8,
-                         'dropout': 0.1},
-                        {'n_features': 16,
-                         'layer_params': [16, 64, 256],
-                         'n_epochs': 8,
-                         'dropout': 0.4},
-                        {'n_features': 16,
-                         'layer_params': [16, 512],
-                         'n_epochs': 8,
-                         'dropout': 0.05},
-                        {'n_features': 16,
-                         'layer_params': [16, 512],
-                         'n_epochs': 8,
-                         'dropout': 0.1},
-                        ]
+        n_samples = 1,
+        k=5,
+        model_features=[
+            # {'n_features': n_features,
+            #  'layer_params': [n_features, 64, 64],
+            #  'n_epochs': n_epochs,
+            #  'dropout': 0.01},
+            # {'n_features': n_features,
+            #  'layer_params': [n_features, 64, 64],
+            #  'n_epochs': n_epochs,
+            #  'dropout': 0.3},
+            # {'n_features': n_features,
+            #  'layer_params': [n_features, 16, 16, 16, 16, 16, 16, 16],
+            #  'n_epochs': n_epochs,
+            #  'dropout': 0.2},
+            # {'n_features': n_features,
+            #  'layer_params': [n_features, 16, 16, 16, 16, 16, 16, 16],
+            #  'n_epochs': n_epochs,
+            #  'dropout': 0.2},
+            {'n_features': n_features,
+             'layer_params': [n_features, 32, 32, 32],
+             'n_epochs': n_epochs,
+             'dropout': 0.2},
+        ]
     )
 
     modelCVer.validateModel()

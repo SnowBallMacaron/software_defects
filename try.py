@@ -12,6 +12,7 @@ from sklearn.decomposition import PCA
 transformer = PowerTransformer(method='yeo-johnson', standardize=True)
 
 raw_data = pd.read_csv('./train.csv')
+y = raw_data.defects
 raw_data = raw_data.drop(columns=['defects', 'id'])
 pipeline = make_pipeline(
 
@@ -34,7 +35,7 @@ normalized_df = pd.DataFrame(data=normalized_data, columns=raw_data.columns)
 pca = PCA()
 pca.fit(normalized_df)
 transformed_data = pca.transform(normalized_df)
-
+transformed_data = pd.concat([transformed_data, y], axis=1).reset_index(drop=True)
 
 
 
