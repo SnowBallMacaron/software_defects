@@ -7,6 +7,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.compose import make_column_selector, make_column_transformer
 import seaborn as sns
 import plotly.express as px
+from sklearn.decomposition import PCA
+
 transformer = PowerTransformer(method='yeo-johnson', standardize=True)
 
 raw_data = pd.read_csv('./train.csv')
@@ -27,6 +29,15 @@ transformer = make_column_transformer(
 )
 normalized_data = pipeline.fit_transform(raw_data)
 normalized_df = pd.DataFrame(data=normalized_data, columns=raw_data.columns)
+
+# mean = normalized_df.mean(axis=0)
+pca = PCA()
+pca.fit(normalized_df)
+transformed_data = pca.transform(normalized_df)
+
+
+
+
 
 #,,,n,v,l,d,i,e,b,t,lOCode,lOComment,lOBlank,locCodeAndComment,uniq_Op,uniq_Opnd,total_Op,total_Opnd,branchCount
 #plt.hist(normalized_df['loc'], bins=200, edgecolor='k', alpha=0.7, density=True)
@@ -74,7 +85,7 @@ normalized_df = pd.DataFrame(data=normalized_data, columns=raw_data.columns)
 
 
 # plt.tight_layout()
-plt.show()
+# plt.show()
 
 
 # normalized_df.describe().T\
@@ -102,5 +113,5 @@ plt.show()
 # A = pd.DataFrame([1,2,3])
 # B = pd.DataFrame([4,5,6])
 # C = pd.concat([A, B], axis=1)
-#print(raw_data)
+print(raw_data)
 
