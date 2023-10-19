@@ -38,6 +38,7 @@ Linear -> ReLU -> Dropout
 ### 目前训练逻辑
 
 > 目前实际上并非正式训练，而是在做Cross Validation (CV)，但是和正常训练是一样的逻辑。
+> 进度条中显示的是总训练轮数，也就是 sample数量 * kfold数量 * 单个模型训练轮数。
 
 1. `modelCVer = ModelCrossValidator()` 创建一个CV任务
 2. `modelCVer.validateModel()`进行CV训练
