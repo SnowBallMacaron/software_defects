@@ -59,3 +59,6 @@ Linear -> ReLU -> Dropout
   - `k`，等同于将数据等分k份
 - Learning Rate
   - `trainNNModel`函数中`optimizer`的`lr`参数，
+- Batchsize 
+  - 在`validateModel`下`train_dl` 和 `val_dl`
+  - 越大训练越快，但有可能会对模型的精确度略有影响（目前看来很小）
