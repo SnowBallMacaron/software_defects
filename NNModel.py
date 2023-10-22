@@ -166,6 +166,7 @@ def trainNNModel(model, train_dl, val_dl, n_epochs, pbar):
     return auc
 
 if __name__ == '__main__':
+    ## Haha jiwaiwai
     device = torch.device('cuda')
     n_epochs = 300
     n_features = 15
