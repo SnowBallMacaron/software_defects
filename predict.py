@@ -98,6 +98,25 @@ def ensembleCV(data, models, k=5):
         # print(f"Optimized AUC, Fold train = {auc}")
         # print(f"Coefficients = {opt.coef}")
 
+def votePredict(train_data_path, test_path, models, coef, selected_feature):
+    train_data_raw = [pd.read_csv(path) for path in train_data_path]
+    train_data = [(raw.drop(columns='defects'), raw.defects) for raw in train_data_raw]
+    X_test = pd.read_csv(test_path)[selected_feature]
+    X_test_id = X_test.pop('id')
+
+
+    preds = []
+    for (X_train, y_train), (modelCls, param) in zip(train_data, models):
+        model = modelCls(**param)
+        model.fit(X_train.values, y_train.values)
+        pred = model.predict_proba(X_test.values)[:, 1]
+        preds.append(pred)
+
+    preds = np.stack(preds, axis=1)
+    preds_coef = preds * coef
+    predictions = np.sum(preds_coef, axis=1)
+    submission = pd.DataFrame({'id': X_test_id, 'defects': predictions})
+    return submission
 
 if __name__ == '__main__':
     param1 = {"boosting_type":'dart', #gbdt, dart
@@ -128,10 +147,19 @@ if __name__ == '__main__':
         [xgb.XGBClassifier, param3]
     ]
 
-    for i in range(4):
-        sample = pd.read_csv(f'sample_{i}.csv')
-        print(f'----------sample{i}------------')
-        data = create_folds(sample, n_splits=5, seed=7)
-        data.loc[:, 'defects'] = data['defects'].astype(int)
-        # print(data.groupby(['kfold', 'defects']).size())
-        ensembleCV(data, models, k=5)
+    samples = [
+        'sample_0.csv',
+        'sample_1.csv',
+        'sample_2.csv'
+    ]
+
+    # for i in range(4):
+    #     sample = pd.read_csv(f'sample_{i}.csv')
+    #     print(f'----------sample{i}------------')
+    #     data = create_folds(sample, n_splits=5, seed=7)
+    #     data.loc[:, 'defects'] = data['defects'].astype(int)
+    #     # print(data.groupby(['kfold', 'defects']).size())
+    #     ensembleCV(data, models, k=5)
+
+
+    votePredict(samples, 'test.csv', models, [1,1,1], ['id', 'loc', 'ev(g)', 'iv(g)', 'l', 'd', 'i', 'b', 'lOCode', 'lOComment', 'lOBlank', 'locCodeAndComment', 'uniq_Op', 'uniq_Opnd', 'total_Op', 'total_Opnd', 'branchCount'])
