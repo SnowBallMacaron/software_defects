@@ -51,7 +51,7 @@ class OptimizeAUC:
         # we want the coefficients to sum to 1
         initial_coef = np.random.dirichlet(np.ones(X.shape[1]), size=1)
         # use scipy fmin to minimize the loss function, in our case auc
-        self.coef = fmin(loss_partial, initial_coef, disp=True)
+        self.coef = fmin(loss_partial, initial_coef, disp=False)
 
     def predict(self, X):
         # this is similar to _auc function
@@ -91,12 +91,12 @@ def ensembleCV(data, models, k=5):
         print(f"Optimized AUC, Fold val = {auc}")
         print(f"Coefficients = {opt.coef}")
 
-        opt = OptimizeAUC()
-        opt.fit(val_preds, y_val)
-        opt_preds = opt.predict(train_preds)
-        auc = metrics.roc_auc_score(y_train, opt_preds)
-        print(f"Optimized AUC, Fold train = {auc}")
-        print(f"Coefficients = {opt.coef}")
+        # opt = OptimizeAUC()
+        # opt.fit(val_preds, y_val)
+        # opt_preds = opt.predict(train_preds)
+        # auc = metrics.roc_auc_score(y_train, opt_preds)
+        # print(f"Optimized AUC, Fold train = {auc}")
+        # print(f"Coefficients = {opt.coef}")
 
 
 if __name__ == '__main__':
@@ -134,4 +134,4 @@ if __name__ == '__main__':
         data = create_folds(sample, n_splits=5, seed=7)
         data.loc[:, 'defects'] = data['defects'].astype(int)
         # print(data.groupby(['kfold', 'defects']).size())
-        ensembleCV(data, models, k=1)
+        ensembleCV(data, models, k=5)

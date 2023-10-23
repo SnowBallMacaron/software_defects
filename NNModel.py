@@ -74,7 +74,7 @@ class ModelCrossValidator:
                     y_val = val_data.defects.values
 
                     train_dl = DataLoader(dataset=TrainDataset(x_train, y_train),
-                                          batch_size=256,
+                                          batch_size=512,
                                           shuffle=True,
                                           pin_memory=True,
                                           drop_last=False,
@@ -100,10 +100,11 @@ dropout = {feature_list['dropout']}''')
 
             for j, sample in enumerate(sample_performance_list):
                 print(f'----------sample{j}------------')
-                for fold, auc in enumerate(sample):
+                for fold, (auc, cf) in enumerate(sample):
                     mean_auc += auc
                     num_val += 1
                     print(f"Fold = {fold}, AUC = {auc}")
+                    print(cf)
             print(f'\nMean AUC = {mean_auc/num_val}')
 
 
@@ -162,16 +163,16 @@ def trainNNModel(model, train_dl, val_dl, n_epochs, pbar):
     predictions = np.concatenate(predictions)
     predictions = np.squeeze(predictions, axis=1)
     auc = metrics.roc_auc_score(val_dl.dataset.y, predictions)
-
-    return auc
+    cf = metrics.confusion_matrix(val_dl.dataset.y, predictions > 0.5)
+    return auc, cf
 
 if __name__ == '__main__':
     ## Haha jiwaiwai
     device = torch.device('cuda')
-    n_epochs = 300
+    n_epochs =5
     n_features = 15
     modelCVer = ModelCrossValidator(
-        n_samples = 1,
+        n_samples = 3,
         k=5,
         model_features=[
             # {'n_features': n_features,
@@ -191,9 +192,9 @@ if __name__ == '__main__':
             #  'n_epochs': n_epochs,
             #  'dropout': 0.2},
             {'n_features': n_features,
-             'layer_params': [n_features, 32, 32, 32],
+             'layer_params': [n_features, 30, 98, 300, 900],
              'n_epochs': n_epochs,
-             'dropout': 0.2},
+             'dropout': 0.112},
         ]
     )
 
